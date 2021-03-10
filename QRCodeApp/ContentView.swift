@@ -12,11 +12,11 @@ struct ContentView: View {
 		NavigationView {
 			VStack {
 				NavigationLink(destination: Generator()) {
-					Text("Click here for the generation")
+					Text("Generator")
 				}
 				.padding()
 				NavigationLink(destination: Text("Scanner")) {
-					Text("Click here for the scanning")
+					Text("Scanner")
 				}
 				.padding()
 				Spacer()

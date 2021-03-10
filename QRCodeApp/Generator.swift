@@ -2,6 +2,12 @@
 //  Generator.swift
 //  QRCodeApp
 //
+//	This file contains the struct for generating a QR-Code
+//	The maximum size is version 10 to make the ec calculation easier
+// 	The ec Level M ist always used, as well as the masking pattern number 1
+//  The logic is written by me, except the ec algorithms
+//	For websites, where I just took the information from, the URL is pasted below
+//
 //  Created by Theodor Teslia on 04.03.21.
 //
 
@@ -38,8 +44,10 @@ struct Generator: View {
     }
 	// End UI
 	
+	// This function is the main function, which is calling every other one
+	// Furthermore, it initialises the important variables with values
 	func start() {
-		bitMessage = Helper.ByteModeEncoding(input)
+		bitMessage = Helper.ByteModeEncoding(input.trimmingCharacters(in: .whitespacesAndNewlines))
 		version = Helper.findCorrectSize(size: input.count)
 		if (version == -1) {
 			print("Couldn't find a size. Size: \(input.count)")
@@ -52,21 +60,22 @@ struct Generator: View {
 		errorCorrection()
 	}
 	
+	// Make the bit message the correct length with the terminatord etc.
 	func padTheMessage() {
 		let neededSize = Helper.getECInfo(version: version, .TOTAL_CODEWORDS) * 8
 		var currentSize = (bitMessage.count * 8) + modeIndicator.count + charCountIndicator.count
 		
 		var difference = neededSize - currentSize
-		if (difference < 4) {
+		if (difference < 4) {  // Calculate if a terminator is needed
 			for _ in 0 ..< difference {
 				terminator.append("0")
 			}
 			return
+		} else {
+			terminator.append("0000")
 		}
 		
-		terminator.append("0000")
-		
-		currentSize += terminator.count
+		currentSize += terminator.count  // make the size a multiple of 8
 		if currentSize % 8 != 0 {
 			for _ in 0 ..< 8 - currentSize % 8 {
 				terminator.append("0")
@@ -77,12 +86,13 @@ struct Generator: View {
 		let numOfNeededWords = difference / 8
 		let possiblePadBytes = ["11101100", "00010001"]
 		
-		for i in 0 ..< numOfNeededWords {
+		for i in 0 ..< numOfNeededWords {  // Fill the complete size of the Code with pad bytes
 			self.padBytes.append(possiblePadBytes[i%2])
 		}
 		
 	}
 	
+	// Finalize the bit string by putting everything in an fitting array in 8-bit byte form
 	func finalizeBitMessage() {
 		var finalBitString: String = modeIndicator + charCountIndicator
 		for byte in bitMessage {
@@ -92,6 +102,7 @@ struct Generator: View {
 		for pad in padBytes {
 			finalBitString.append(pad)
 		}
+		print(finalBitString)
 		
 		bitMessage.removeAll()
 		while (finalBitString.count > 0) {
@@ -100,13 +111,83 @@ struct Generator: View {
 		}
 	}
 	
+	// Fill and create the ec words for the correct block and groups
 	func errorCorrection() {
+		var blocks = divideIntoBlocks()
 		
+		for i in 0 ..< blocks.count {  // Fill the ec words in blocks where it is needed
+			if blocks[i].data.count == 0 {
+				continue
+			}
+			var intMsg = [Int]()
+			for bin in blocks[i].data {
+				intMsg.append(Int(bin, radix: 2) ?? -1)
+			}
+			let ecWords = ec.createCode(msg: intMsg, amountOfWords: Helper.getECInfo(version: version, .EC_WORDS_PER_BLOCK))
+			var temp = [String]()  // Transform the ec words (decimal) to binary
+			for dec in ecWords {
+				temp.append(String(dec, radix: 2))
+			}
+			blocks[i].ec = temp
+		}
+		
+		var filledBlocks: [(data: [String], ec: [String])] = []
+		for block in blocks {
+			if block.data.count != 0 {
+				filledBlocks.append(block)
+			}
+		}
+		
+		var finalSave = [String]()  // TODO: Test in playground
+		for index in 0 ..< (filledBlocks.last?.data.count ?? 0) {  // Iterates through columns (thonky tutorial)
+			for j in 0 ..< filledBlocks.count {  // Iterates through rows
+				if index >= filledBlocks[j].data.count {  // Because the first group can have fewer elements than second
+					continue
+				}
+				finalSave.append(filledBlocks[j].data[index])
+			}
+		}  // Do same for ec words
+		// Then add remainder bits for versions 2 ..< 7
 	}
 	
+	// Divide the bit message in blocks so the ec words can be created
+	func divideIntoBlocks() -> [(data: [String], ec: [String])] {
+		var returnVal: [(data: [String], ec: [String])] = []  // Initialisation
+		for _ in 0 ..< 4 {
+			returnVal.append( ([String](), [String]()) )
+		}
+		
+		let gr1BlockAmount = Helper.getECInfo(version: version, .GROUP1_BLOCK_NUM)
+		var counter = 0
+		
+		for _ in 0 ..< gr1BlockAmount {  // Fill the first group with the binary information (message data)
+			var block = 0
+			let wordAmount = Helper.getECInfo(version: version, .WORD_NUM_GROUP1)
+			for _ in 0 ..< wordAmount {
+				returnVal[block].data.append(bitMessage[counter])
+				counter += 1
+			}
+			block += 1
+		}
+		
+		let gr2BlockAmount = Helper.getECInfo(version: version, .GROUP2_BLOCK_NUM)
+		for _ in 0 ..< gr2BlockAmount {  // Fill the second group with the binary information (message data)
+			var block = 2
+			let wordAmount = Helper.getECInfo(version: version, .WORD_NUM_GROUP2)
+			for _ in 0 ..< wordAmount {
+				returnVal[block].data.append(bitMessage[counter])
+				counter += 1
+			}
+			block += 1
+		}
+		
+		return returnVal
+	}
+	
+	// Word placeolder for getting version-specific information
 	public enum ECWords: Int {
 		case TOTAL_CODEWORDS = 0,  // Total number of data codewords for this version and EC Level
-		WORDS_PER_BLOCK,  // EC Codewords per block
+		EC_WORDS_PER_BLOCK,  // EC Codewords per block
 		GROUP1_BLOCK_NUM,  // Number of blocks in group 1
 		WORD_NUM_GROUP1,  // Number of data codeworks in each of group1's blocks
 		GROUP2_BLOCK_NUM,  // Number of blocks in group 2
