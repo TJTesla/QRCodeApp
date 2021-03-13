@@ -8,20 +8,24 @@
 import Foundation
 
 struct CodeModule {
-	private var reserved: Bool
+	private var reserved: ModuleType
 	private var color: Color
 	
 	init() {
 		self.color = .none
-		self.reserved = false
+		self.reserved = .data
 	}
 	
-	init(pColor: Color, reserve: Bool = false) {
+	init(pColor: Color, reserve: ModuleType = .data) {
 		self.color = pColor
 		self.reserved = reserve
 	}
 	
 	public func isReserved() -> Bool {
+		return self.reserved == .data
+	}
+	
+	public func getPart() -> ModuleType {
 		return self.reserved
 	}
 	
@@ -32,4 +36,11 @@ struct CodeModule {
 	public enum Color {
 		case white, black, none
 	}
+}
+
+enum ModuleType {
+	case finder, separator, alignment
+	case vTiming, hTiming
+	case format, upVersion, lowVersion
+	case data
 }

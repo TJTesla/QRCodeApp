@@ -18,13 +18,13 @@ class Helper {
 		}
 		
 		for i in 0 ..< save.count {
-			save[i] = self.pad(toSize: 8, message: save[i])
+			save[i] = self.padLeft(toSize: 8, message: save[i])
 		}
 		
 		return save
 	}
 	
-	public static func pad(toSize size: Int, message msg: String) -> String {
+	public static func padLeft(toSize size: Int, message msg: String) -> String {
 		var str = msg
 		
 		if str.count >= size {
@@ -33,6 +33,20 @@ class Helper {
 		
 		for _ in 0 ..< size - str.count {
 			str.insert("0", at: str.startIndex)
+		}
+		
+		return str
+	}
+	
+	public static func padRight(toSize size: Int, message msg: String) -> String {
+		var str = msg
+		
+		if str.count >= size {
+			return str
+		}
+		
+		for _ in 0 ..< size - str.count {
+			str.insert("0", at: str.endIndex)
 		}
 		
 		return str
@@ -63,7 +77,7 @@ class Helper {
 			bitLength = 16
 		}
 		
-		result = self.pad(toSize: bitLength, message: result)
+		result = self.padLeft(toSize: bitLength, message: result)
 		
 		return result
 	}

@@ -202,13 +202,24 @@ struct Generator: View {
 		return returnVal
 	}
 	
-	func fillMatrix(_ str: String) {
+	func fillMatrix(_ msg: String) {
 		let edgeSize = ((version - 1) * 4) + 21
 		matrix = Array(repeating: Array(repeating: CodeModule(), count: edgeSize), count: edgeSize)
 		
 		matrix = finderPatterns(matrix, x: 0, y: 0)
 		matrix = finderPatterns(matrix, x: edgeSize-7, y: 0)
 		matrix = finderPatterns(matrix, x: 0, y: edgeSize-7)
+		
+		matrix = separator(matrix, corner: .lowerLeft)
+		matrix = separator(matrix, corner: .upperRight)
+		matrix = separator(matrix, corner: .upperLeft)
+		
+		matrix = alignmentPattern(matrix, version)
+		matrix = timingPatterns(matrix)
+		matrix = darkModule(matrix, version)
+		matrix = formatStringAndVersionInformation(matrix, version)
+		
+		
 	}
 	
 	

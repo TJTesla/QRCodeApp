@@ -8,7 +8,7 @@
 import Foundation
 
 class ErrorCorrector {
-	// Nearl the complete code of this part is taken from the website: https://en.m.wikiversity.org/wiki/Reed–Solomon_codes_for_coders#Encoding_main_function
+	// Nearly the complete code of this part is taken from the website: https://en.m.wikiversity.org/wiki/Reed–Solomon_codes_for_coders#Encoding_main_function
 	// I took the parts I needed and translated them from Python to Swift
 	// However, the functions getOtherGenPoly(), createFormatString() and createVersionInfo(),
 	// as well as the enum Case were completely written by
@@ -81,24 +81,22 @@ class ErrorCorrector {
 		return g
 	}
 	
-	private func getOtherGenPoly(_ neededCase: Case) -> [Int] {
+	private func getOtherGenPoly() -> [Int] {
 		// Source: https://www.thonky.com/qr-code-tutorial/format-version-information
-		switch neededCase {
-			case .format:
-				return [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1]
-			case .versionInfo:
-				return [1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1]
-			default:
-				return [-1]
-		}
+		return [1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1]
 	}
 
-	private func rs_encode_message(_ msg_in: [Int], _ nsym: Int, _ case: Case = .data) -> [Int] {
+	private func rs_encode_message(_ msg_in: [Int], _ nsym: Int, genCase: Case = .data) -> [Int] {
 		if msg_in.count + nsym > 255 {
 			return [-1]
 		}
 		
-		let gen = rs_generator_poly(nsym)
+		let gen: [Int]
+		if genCase == .data {
+			gen = rs_generator_poly(nsym)
+		} else {
+			gen = getOtherGenPoly()
+		}
 
 		var msg_out = [Int](repeating: 0, count: msg_in.count + gen.count-1)
 		for i in 0 ..< msg_in.count { msg_out[i] = msg_in[i] }
@@ -124,11 +122,27 @@ class ErrorCorrector {
 	}
 	
 	public func createFormatString() -> [Int] {
-		return [-1]
+		// Error Correction Level: M (0) 101000100100101
+		// Masking pattern: 1: (row) % 2 == 0
+		var formatString = "101000100100101"
+		var returnVal = [Int]()
+		for _ in 0 ..< formatString.count {
+			returnVal.append( Int(String(formatString.first!))! )
+			formatString.removeFirst()
+		}
+		return returnVal
 	}
 	
 	public func createVersionInfo(_ version: Int) -> [Int] {
-		return [-1]
+		let table = ["000111110010010100", "001000010110111100", "001001101010011001", "001010010011010011"]
+		// Source: https://www.thonky.com/qr-code-tutorial/format-version-tables
+		var entry = table[version-7]
+		var returnVal = [Int]()
+		for _ in 0 ..< entry.count {
+			returnVal.append( Int(String(entry.first!))! )
+			entry.removeFirst()
+		}
+		return returnVal
 	}
 	
 	private enum Case {
