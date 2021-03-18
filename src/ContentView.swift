@@ -76,40 +76,44 @@ struct ContentView: View {
 		let size = (matrix.count + 8) * 10
 		let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
 		let rectImage = renderer.image { ctx in
+			// Draw code
 			for row in 0 ..< matrix.count {
 				for cell in 0 ..< matrix[row].count {
-					// print(matrix[row][cell].getColor() == .black ? "1" : "0", terminator: " ")
+					
 					if matrix[row][cell].getColor() == .black {
 						let rectangle = CGRect(x: (cell+4)*10, y: (row+4)*10, width: 10, height: 10)
 						ctx.cgContext.setFillColor(UIColor.black.cgColor)
 						ctx.cgContext.addRect(rectangle)
 						ctx.cgContext.drawPath(using: .fill)
-
+					} else if matrix[row][cell].getColor() == .white {  // Needed for when dark mode is activated
+						let rectangle = CGRect(x: (cell+4)*10, y: (row+4)*10, width: 10, height: 10)
+						ctx.cgContext.setFillColor(UIColor.white.cgColor)
+						ctx.cgContext.addRect(rectangle)
+						ctx.cgContext.drawPath(using: .fill)
 					}
+					
 				}
-				// print("")
 			}
 			
-			
 		}
-		
 		finishedCode = Image(uiImage: rectImage)
 	}
 	
 	// This function is the main function, which is calling every other one
 	// Furthermore, it initialises the important variables with values
 	func start() {
-		bitMessage.removeAll()  // Initialise all values if button is reused again
+		bitMessage.removeAll()  // Reset all values if new QR-Code has to be generated
 		version = 0
 		charCountIndicator = ""
 		terminator = ""
 		padBytes.removeAll()
 		
 		input = input.trimmingCharacters(in: .whitespacesAndNewlines)
-		if input.count == 0 {
+		if input.count == 0 {  // Make sure that the message is not empty
 			return
 		}
 		
+		// Initialise all values
 		bitMessage = Helper.ByteModeEncoding(input)
 		version = Helper.findCorrectSize(size: input.count)
 		if (version == -1) {
@@ -118,32 +122,21 @@ struct ContentView: View {
 		}
 		charCountIndicator = Helper.encodeCharCountIndicator(version: version, input)
 		
+		// Start the algorithm
 		padTheMessage()
 		finalizeBitMessage()
 		let str = errorCorrection()
 		fillMatrix(str)
-		
-		/*for row in 0 ..< matrix.count {
-			for cell in 0 ..< matrix[row].count {
-				if matrix[row][cell].getPart() == .data {
-					print(String(format: "%3d", matrix[row][cell].getValue()), terminator: " ")
-				} else {
-					let str = matrix[row][cell].getColor() == .black ? "1" : "0"
-					print(String(format: "%3d", Int(str) ?? 0), terminator: " ")
-				}
-			}
-			print("")
-		}*/
-		print("Ver: \(version)")
 	}
 	
-	// Make the bit message the correct length with the terminatord etc.
+	// Make the bit message the correct length with the terminator etc.
 	func padTheMessage() {
 		let neededSize = Helper.getECInfo(version: version, .TOTAL_CODEWORDS) * 8
 		var currentSize = (bitMessage.count * 8) + modeIndicator.count + charCountIndicator.count
 		
+		// Calculate if a terminator is needed
 		var difference = neededSize - currentSize
-		if (difference < 4) {  // Calculate if a terminator is needed
+		if (difference < 4) {
 			for _ in 0 ..< difference {
 				terminator.append("0")
 			}
@@ -152,24 +145,27 @@ struct ContentView: View {
 			terminator.append("0000")
 		}
 		
-		currentSize += terminator.count  // make the size a multiple of 8
+		// Make the size a multiple of 8
+		currentSize += terminator.count
 		if currentSize % 8 != 0 {
 			for _ in 0 ..< 8 - currentSize % 8 {
 				terminator.append("0")
 			}
 		}
 		
+		// Fill the complete size of the Code with pad bytes
 		difference = neededSize - ((bitMessage.count * 8) + modeIndicator.count + charCountIndicator.count + terminator.count)
 		let numOfNeededWords = difference / 8
 		let possiblePadBytes = ["11101100", "00010001"]
 		
-		for i in 0 ..< numOfNeededWords {  // Fill the complete size of the Code with pad bytes
+		for i in 0 ..< numOfNeededWords {
 			self.padBytes.append(possiblePadBytes[i%2])
 		}
 	}
 	
 	// Finalize the bit string by putting everything in an fitting array in 8-bit byte form
 	func finalizeBitMessage() {
+		// Create string by appending everything
 		var finalBitString: String = modeIndicator + charCountIndicator
 		for byte in bitMessage {
 			finalBitString.append(byte)
@@ -179,6 +175,7 @@ struct ContentView: View {
 			finalBitString.append(pad)
 		}
 		
+		// Save that string in an array with 8-bit bytes
 		bitMessage.removeAll()
 		while (finalBitString.count > 0) {
 			bitMessage.append(String(finalBitString.prefix(8)))
@@ -189,18 +186,21 @@ struct ContentView: View {
 	// Fill and create the ec words for the correct block and groups
 	func errorCorrection() -> String {
 		var blocks:[(data: [String], ec: [String])] = divideIntoBlocks()
-		print(blocks)
 		
-		for i in 0 ..< blocks.count {  // Fill the ec words in blocks where it is needed
+		// Fill the ec words in blocks
+		for i in 0 ..< blocks.count {
 			if blocks[i].data.count == 0 {
 				continue
 			}
+			// Transform the binary data codewords to decimal numbers
 			var intMsg = [Int]()
 			for bin in blocks[i].data {
 				intMsg.append(Int(bin, radix: 2) ?? -1)
 			}
+			
 			let ecWords = ec.createCode(msg: intMsg, amountOfWords: Helper.getECInfo(version: version, .EC_WORDS_PER_BLOCK))
-			var temp = [String]()  // Transform the ec words (decimal) to binary
+			// Transform the ec words (decimal) to binary
+			var temp = [String]()
 			for dec in ecWords {
 				var byte = String(dec, radix: 2)
 				byte = Helper.padLeft(toSize: 8, message: byte)
@@ -210,6 +210,7 @@ struct ContentView: View {
 		}
 		
 		// Create the final, interleaved message
+		// Initialise final structure for saving
 		var filledBlocks: [(data: [String], ec: [String])] = []
 		for block in blocks {
 			if block.data.count != 0 {
@@ -217,6 +218,7 @@ struct ContentView: View {
 			}
 		}
 		
+		// Fill strucuture with interleaved data codewords
 		var finalSaveArr: [String] = [String]()
 		for index in 0 ..< (filledBlocks.last?.data.count ?? 0) {  // Iterates through columns (thonky tutorial)
 			for j in 0 ..< filledBlocks.count {  // Iterates through rows
@@ -227,10 +229,7 @@ struct ContentView: View {
 			}
 		}
 		
-		/*for i in 0 ..< filledBlocks[0].ec.count {
-			filledBlocks[0].ec[i] = "00000000"
-		}*/
-		
+		// Fill strucuture with interleaved ec codewords
 		for index in 0 ..< (filledBlocks.last?.ec.count ?? 0) {  // Iterates through columns (thonky tutorial)
 			for j in 0 ..< filledBlocks.count {  // Iterates through rows
 				if index >= filledBlocks[j].ec.count {  // Because the first group can have fewer elements than second
@@ -242,11 +241,10 @@ struct ContentView: View {
 		
 		var finalSaveStr: String = finalSaveArr.joined(separator: "")
 		
-		
-		
 		if ( 2 <= version && version <= 6) {
 			finalSaveStr.append("0000000")
 		}
+		
 		return finalSaveStr
 	}
 	
@@ -259,7 +257,6 @@ struct ContentView: View {
 		}
 		
 		let gr1BlockAmount = Helper.getECInfo(version: version, .GROUP1_BLOCK_NUM)
-		print("Blocknum: \(gr1BlockAmount)")
 		var counter = 0
 		var block = 0
 		
@@ -340,39 +337,6 @@ struct ContentView: View {
 	}
 }
 
-
-
-
-
-
-
-
-
-
-
-/*struct ContentView: View {
-    var body: some View {
-		NavigationView {
-			VStack {
-				NavigationLink(destination: Generator()) {
-					Text("Generator")
-				}
-				.padding()
-				NavigationLink(destination: Text("Scanner")) {
-					Text("Scanner")
-				}
-				.padding()
-				Spacer()
-				NavigationLink(destination: Information()) {
-					Text("Click here for more information about this app")
-				}
-				.padding([.bottom], 50)
-			}
-			.navigationBarTitle("QR-Code App")
-		}
-    }
-}
-*/
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
