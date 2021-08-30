@@ -1,6 +1,11 @@
 //
 //  ContentView.swift
-//  QRCodeApp
+//  This file contains the main algorithm for generating a QR-Code from Scratch
+//  The generated QR-Code can go up to version 10,
+//  has the errorcorrection level M and the maaking pattern 1
+//  The Code is drawn with CoreImage onto an UIImage, which then is converted to an Image
+//  The logic is written by me, however a few functions, as well as the ECC is coming from someone else
+//  However, I have given credit at the points, where this occurs
 //
 //  Created by Theodor Teslia on 04.03.21.
 //
@@ -72,6 +77,7 @@ struct ContentView: View {
 	
 	// Draw the finished QR-Code on an image
 	// Source: https://www.hackingwithswift.com/read/27/3/drawing-into-a-core-graphics-context-with-uigraphicsimagerenderer
+	// The source just gave the info about how to draw on an UIImage
 	func createImage() {
 		let size = (matrix.count + 8) * 10
 		let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
